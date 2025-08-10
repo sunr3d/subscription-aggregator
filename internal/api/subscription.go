@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -71,19 +72,15 @@ func (h *Handler) createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := subscriptionRes{
-		ID:          id,
-		ServiceName: req.ServiceName,
-		Price:       req.Price,
-		UserID:      req.UserID,
-		StartDate:   start.Format("01-2006"),
-	}
-	if endPtr != nil {
-		resp.EndDate = endPtr.Format("01-2006")
-	}
-
-	if err := httpx.WriteJSON(w, http.StatusCreated, resp); err != nil {
-		h.logger.Error("не удалось записать ответ", zap.Error(err))
+	if err := httpx.WriteJSON(w, http.StatusCreated, map[string]int{"id": id}); err != nil {
+		switch {
+		case errors.Is(err, httpx.ErrJSONMarshal):
+			h.logger.Error("не удалось сериализовать JSON", zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		case errors.Is(err, httpx.ErrWriteBody):
+			h.logger.Warn("клиент закрыл соединение, ответ не был отправлен", zap.Error(err))
+		}
+		return
 	}
 }
 
