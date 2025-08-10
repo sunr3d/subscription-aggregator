@@ -12,7 +12,6 @@ import (
 
 	"github.com/sunr3d/subscription-aggregator/internal/httpx"
 	"github.com/sunr3d/subscription-aggregator/internal/interfaces/services"
-	"github.com/sunr3d/subscription-aggregator/internal/services/subscription_service"
 	"github.com/sunr3d/subscription-aggregator/models"
 )
 
@@ -69,8 +68,13 @@ func (h *Handler) createHandler(w http.ResponseWriter, r *http.Request) {
 		EndDate:     endPtr,
 	})
 	if err != nil {
-		h.logger.Error("ошибка при создании подписки", zap.Error(err))
-		httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		switch {
+		case errors.Is(err, services.ErrValidation):
+			httpx.HttpError(w, http.StatusBadRequest, err.Error())
+		default:
+			h.logger.Error("ошибка при создании подписки", zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		}
 		return
 	}
 
@@ -96,7 +100,7 @@ func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 
 	dataItem, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, subscription_service.ErrNotFound) {
+		if errors.Is(err, services.ErrNotFound) {
 			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
 			return
 		}

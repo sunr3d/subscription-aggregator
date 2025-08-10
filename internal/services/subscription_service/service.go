@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	infraErr "github.com/sunr3d/subscription-aggregator/internal/infra"
 	"github.com/sunr3d/subscription-aggregator/internal/interfaces/infra"
 	"github.com/sunr3d/subscription-aggregator/internal/interfaces/services"
 	"github.com/sunr3d/subscription-aggregator/models"
@@ -23,10 +22,10 @@ func New(repo infra.Database) services.SubscriptionService {
 
 func (s *subscriptionService) Create(ctx context.Context, data models.Subscription) (int, error) {
 	if data.Price < 0 {
-		return -1, fmt.Errorf("price не может быть отрицательным")
+		return -1, fmt.Errorf("%w: price не может быть отрицательным", services.ErrValidation)
 	}
 	if data.EndDate != nil && data.EndDate.Before(data.StartDate) {
-		return -1, fmt.Errorf("end_date не может быть раньше start_date")
+		return -1, fmt.Errorf("%w: end_date не может быть раньше start_date", services.ErrValidation)
 	}
 	return s.repo.Create(ctx, data)
 }
@@ -34,8 +33,8 @@ func (s *subscriptionService) Create(ctx context.Context, data models.Subscripti
 func (s *subscriptionService) GetByID(ctx context.Context, id int) (models.Subscription, error) {
 	res, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, infraErr.ErrNotFound) {
-			return models.Subscription{}, ErrNotFound
+		if errors.Is(err, infra.ErrNotFound) {
+			return models.Subscription{}, services.ErrNotFound
 		}
 		return models.Subscription{}, fmt.Errorf("postgres GetByID(): %w", err)
 	}
@@ -44,14 +43,14 @@ func (s *subscriptionService) GetByID(ctx context.Context, id int) (models.Subsc
 
 func (s *subscriptionService) Update(ctx context.Context, data models.Subscription) error {
 	if data.Price < 0 {
-		return fmt.Errorf("price не может быть отрицательным")
+		return fmt.Errorf("%w: price не может быть отрицательным", services.ErrValidation)
 	}
 	if data.EndDate != nil && data.EndDate.Before(data.StartDate) {
-		return fmt.Errorf("end_date не может быть раньше start_date")
+		return fmt.Errorf("%w: end_date не может быть раньше start_date", services.ErrValidation)
 	}
 	if err := s.repo.Update(ctx, data); err != nil {
-		if errors.Is(err, infraErr.ErrNotFound) {
-			return ErrNotFound
+		if errors.Is(err, infra.ErrNotFound) {
+			return services.ErrNotFound
 		}
 		return fmt.Errorf("postgres Update(): %w", err)
 	}
@@ -60,8 +59,8 @@ func (s *subscriptionService) Update(ctx context.Context, data models.Subscripti
 
 func (s *subscriptionService) Delete(ctx context.Context, id int) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
-		if errors.Is(err, infraErr.ErrNotFound) {
-			return ErrNotFound
+		if errors.Is(err, infra.ErrNotFound) {
+			return services.ErrNotFound
 		}
 		return fmt.Errorf("postgres Delete(): %w", err)
 	}
