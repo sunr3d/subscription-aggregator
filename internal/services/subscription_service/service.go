@@ -68,9 +68,17 @@ func (s *subscriptionService) Delete(ctx context.Context, id int) error {
 }
 
 func (s *subscriptionService) List(ctx context.Context, filter services.ListFilter) ([]models.Subscription, error) {
+	var uid, sname *string
+	if filter.HasUserID {
+		uid = &filter.UserID
+	}
+	if filter.HasServiceName {
+		sname = &filter.ServiceName
+	}
+	
 	return s.repo.List(ctx, infra.ListFilter{
-		UserID:      filter.UserID,
-		ServiceName: filter.ServiceName,
+		UserID:      uid,
+		ServiceName: sname,
 		Limit:       filter.Limit,
 		Offset:      filter.Offset,
 	})

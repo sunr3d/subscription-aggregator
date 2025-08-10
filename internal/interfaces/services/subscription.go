@@ -7,12 +7,15 @@ import (
 )
 
 type ListFilter struct {
-	UserID      *string
-	ServiceName *string
+	UserID      string
+	HasUserID bool
+	ServiceName string
+	HasServiceName bool
 	Limit       int
 	Offset      int
 }
 
+//go:generate go run github.com/vektra/mockery/v2@v2.53.2 --name=SubscriptionService --output=../../../mocks --filename=mock_subscription_service.go --with-expecter
 type SubscriptionService interface {
 	Create(ctx context.Context, data models.Subscription) (int, error)
 	GetByID(ctx context.Context, id int) (models.Subscription, error)

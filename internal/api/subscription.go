@@ -134,13 +134,139 @@ func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updateHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Ручка обновления подписки
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		httpx.HttpError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	var req updateSubscriptionReq
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		httpx.HttpError(w, http.StatusBadRequest, "Некорректный JSON")
+		return
+	}
+
+	if err := validateUpdateSubscription(req); err != nil {
+		httpx.HttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	dataItem, err := h.svc.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
+			return
+		}
+		h.logger.Error("Ошибка GetByID() при обновлении подписки",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
+		httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	if req.ServiceName != nil {
+		dataItem.ServiceName = *req.ServiceName
+	}
+	if req.Price != nil {
+		dataItem.Price = *req.Price
+	}
+	if req.UserID != nil {
+		dataItem.UserID = *req.UserID
+	}
+	if req.StartDate != nil {
+		t, _ := time.Parse("01-2006", *req.StartDate)
+		dataItem.StartDate = t.UTC()
+	}
+
+	if req.EndDate != nil {
+		if strings.TrimSpace(*req.EndDate) == "" {
+			dataItem.EndDate = nil
+		} else {
+			t, _ := time.Parse("01-2006", *req.EndDate)
+			tt := t.UTC()
+			dataItem.EndDate = &tt
+		}
+	}
+
+	if err := h.svc.Update(r.Context(), dataItem); err != nil {
+		switch {
+		case errors.Is(err, services.ErrValidation):
+			httpx.HttpError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, services.ErrNotFound):
+			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
+		default:
+			h.logger.Error("Ошибка Update()", zap.Int("id", id), zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) deleteHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Ручка удаления подписки
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		httpx.HttpError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+	
+	if err := h.svc.Delete(r.Context(), id); err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
+			return
+		}
+		h.logger.Error("Ошибка Delete()", zap.Int("id", id), zap.Error(err))
+		httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) listHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Ручка получения списка подписок
+	var filter services.ListFilter
+	if err := validateListSubscription(r.URL.Query(), &filter); err != nil {
+		httpx.HttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	data, err := h.svc.List(r.Context(), filter)
+	if err != nil {
+		h.logger.Error("Ошибка List()", zap.Error(err))
+		httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	resp := make([]subscriptionRes, 0, len(data))
+	
+	for _, dataItem := range data {
+		respItem := subscriptionRes{
+			ID:          dataItem.ID,
+			ServiceName: dataItem.ServiceName,
+			Price:       dataItem.Price,
+			UserID:      dataItem.UserID,
+			StartDate:   dataItem.StartDate.UTC().Format("01-2006"),
+		}
+		if dataItem.EndDate != nil {
+			respItem.EndDate = dataItem.EndDate.UTC().Format("01-2006")
+		}
+		resp = append(resp, respItem)
+	}
+
+	if err := httpx.WriteJSON(w, http.StatusOK, resp); err != nil {
+		switch {
+		case errors.Is(err, httpx.ErrJSONMarshal):
+			h.logger.Error("не удалось сериализовать JSON", zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		case errors.Is(err, httpx.ErrWriteBody):
+			h.logger.Warn("клиент закрыл соединение, ответ не был отправлен", zap.Error(err))
+		}
+	}
 }

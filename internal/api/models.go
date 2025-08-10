@@ -18,13 +18,6 @@ type updateSubscriptionReq struct {
 	EndDate     *string `json:"end_date,omitempty"`
 }
 
-type listSubscriptionsReq struct {
-	UserID      *string
-	ServiceName *string
-	Limit       int
-	Offset      int
-}
-
 // Response модели
 type subscriptionRes struct {
 	ID          int    `json:"id"`
