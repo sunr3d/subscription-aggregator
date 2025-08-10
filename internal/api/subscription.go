@@ -11,19 +11,19 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sunr3d/subscription-aggregator/internal/httpx"
-	infraErr "github.com/sunr3d/subscription-aggregator/internal/infra"
-	"github.com/sunr3d/subscription-aggregator/internal/interfaces/infra"
+	"github.com/sunr3d/subscription-aggregator/internal/interfaces/services"
+	"github.com/sunr3d/subscription-aggregator/internal/services/subscription_service"
 	"github.com/sunr3d/subscription-aggregator/models"
 )
 
 type Handler struct {
-	db     infra.Database
+	svc    services.SubscriptionService
 	logger *zap.Logger
 }
 
-func New(db infra.Database, logger *zap.Logger) *Handler {
+func New(svc services.SubscriptionService, logger *zap.Logger) *Handler {
 	return &Handler{
-		db:     db,
+		svc:    svc,
 		logger: logger,
 	}
 }
@@ -61,7 +61,7 @@ func (h *Handler) createHandler(w http.ResponseWriter, r *http.Request) {
 		endPtr = &tt
 	}
 
-	id, err := h.db.Create(r.Context(), models.Subscription{
+	id, err := h.svc.Create(r.Context(), models.Subscription{
 		ServiceName: req.ServiceName,
 		Price:       req.Price,
 		UserID:      req.UserID,
@@ -94,9 +94,9 @@ func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataItem, err := h.db.GetByID(r.Context(), id)
+	dataItem, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, infraErr.ErrNotFound) {
+		if errors.Is(err, subscription_service.ErrNotFound) {
 			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
 			return
 		}
