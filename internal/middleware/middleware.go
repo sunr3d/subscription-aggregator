@@ -4,11 +4,26 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
-	
+
 	"github.com/sunr3d/subscription-aggregator/internal/httpx"
 )
+
+func ReqLogger(log *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			next.ServeHTTP(w, r)
+			log.Info("Входящий HTTP запрос",
+				zap.String("method", r.Method),
+				zap.String("url", r.URL.Path),
+				zap.Int64("duration_ms", time.Since(start).Milliseconds()),
+			)
+		})
+	}
+}
 
 func JSONValidator(log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
