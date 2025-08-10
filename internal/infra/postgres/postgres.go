@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -135,6 +136,62 @@ func (db *PostgresDB) Delete(ctx context.Context, id int) error {
 }
 
 func (db *PostgresDB) List(ctx context.Context, filter infra.ListFilter) ([]models.Subscription, error) {
-	// TODO: Оформить логику
-	return []models.Subscription{{}}, nil
+	query := `
+		SELECT id, service_name, price, user_id, start_date, end_date
+		FROM subscriptions
+	`
+	var (
+		conds []string
+		args  []any
+		i     = 1
+	)
+
+	if filter.UserID != nil {
+		conds = append(conds, fmt.Sprintf("user_id = $%d", i))
+		args = append(args, *filter.UserID)
+		i++
+	}
+
+	if filter.ServiceName != nil {
+		conds = append(conds, fmt.Sprintf("service_name = $%d", i))
+		args = append(args, *filter.ServiceName)
+		i++
+	}
+
+	if len(conds) > 0 {
+		query += " WHERE " + strings.Join(conds, " AND ")
+	}
+
+	query += " ORDER BY id DESC"
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET %d", filter.Offset)
+	}
+
+	rows, err := db.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("postgres List(): %w", err)
+	}
+
+	var data []models.Subscription
+	for rows.Next() {
+		var dataItem models.Subscription
+		if err := rows.Scan(
+			&dataItem.ID, &dataItem.ServiceName, &dataItem.Price, &dataItem.UserID,
+			&dataItem.StartDate, &dataItem.EndDate,
+		); err != nil {
+			return nil, fmt.Errorf("postgres List(), rows.Scan(): %w", err)
+		}
+		data = append(data, dataItem)
+	}
+
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres List(), rows.Err(): %w", err)
+	}
+
+	return data, nil
 }
