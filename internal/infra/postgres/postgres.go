@@ -2,13 +2,16 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
 	"github.com/sunr3d/subscription-aggregator/internal/config"
+	infraErr "github.com/sunr3d/subscription-aggregator/internal/infra"
 	"github.com/sunr3d/subscription-aggregator/internal/interfaces/infra"
 	"github.com/sunr3d/subscription-aggregator/models"
 )
@@ -94,6 +97,9 @@ func (db *PostgresDB) GetByID(ctx context.Context, id int) (models.Subscription,
 	if err := db.pool.QueryRow(ctx, query, id).Scan(
 		&data.ID, &data.ServiceName, &data.Price, &data.UserID, &data.StartDate, &data.EndDate,
 	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.Subscription{}, infraErr.ErrNotFound
+		}
 		return models.Subscription{}, fmt.Errorf("postgres GetByID(): %w", err)
 	}
 
@@ -114,7 +120,7 @@ func (db *PostgresDB) Update(ctx context.Context, data models.Subscription) erro
 		return fmt.Errorf("postgres Update(): %w", err)
 	}
 	if ct.RowsAffected() == 0 {
-		return fmt.Errorf("postgres Update(): запись не найдена в БД")
+		return infraErr.ErrNotFound
 	}
 
 	return nil
@@ -130,7 +136,7 @@ func (db *PostgresDB) Delete(ctx context.Context, id int) error {
 		return fmt.Errorf("postgres Delete(): %w", err)
 	}
 	if ct.RowsAffected() == 0 {
-		return fmt.Errorf("postgres Delete(): запись не найдена в БД")
+		return infraErr.ErrNotFound
 	}
 	return nil
 }
