@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/sunr3d/subscription-aggregator/internal/httpx"
+	infraErr "github.com/sunr3d/subscription-aggregator/internal/infra"
 	"github.com/sunr3d/subscription-aggregator/internal/interfaces/infra"
 	"github.com/sunr3d/subscription-aggregator/models"
 )
@@ -29,7 +31,7 @@ func New(db infra.Database, logger *zap.Logger) *Handler {
 func (h *Handler) RegisterCRUDL(mux *http.ServeMux) {
 	mux.HandleFunc("POST /subscriptions", h.createHandler)
 	mux.HandleFunc("GET /subscriptions/{id}", h.getHandler)
-	mux.HandleFunc("PUT /subscriptions/{id}", h.updateHandler)
+	mux.HandleFunc("PATCH /subscriptions/{id}", h.updateHandler)
 	mux.HandleFunc("DELETE /subscriptions/{id}", h.deleteHandler)
 	mux.HandleFunc("GET /subscriptions", h.listHandler)
 }
@@ -85,7 +87,46 @@ func (h *Handler) createHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Ручка получения подписки
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		httpx.HttpError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	dataItem, err := h.db.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, infraErr.ErrNotFound) {
+			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
+			return
+		}
+		h.logger.Error("Ошибка GetByID()",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
+		httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	resp := subscriptionRes{
+		ID:          dataItem.ID,
+		ServiceName: dataItem.ServiceName,
+		Price:       dataItem.Price,
+		UserID:      dataItem.UserID,
+		StartDate:   dataItem.StartDate.UTC().Format("01-2006"),
+	}
+	if dataItem.EndDate != nil {
+		resp.EndDate = dataItem.EndDate.UTC().Format("01-2006")
+	}
+
+	if err := httpx.WriteJSON(w, http.StatusOK, resp); err != nil {
+		if errors.Is(err, httpx.ErrJSONMarshal) {
+			h.logger.Error("не удалось сериализовать JSON", zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		} else if errors.Is(err, httpx.ErrWriteBody) {
+			h.logger.Warn("клиент закрыл соединение, ответ не был отправлен", zap.Error(err))
+		}
+	}
 }
 
 func (h *Handler) updateHandler(w http.ResponseWriter, r *http.Request) {
