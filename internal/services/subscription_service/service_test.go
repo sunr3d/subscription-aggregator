@@ -17,7 +17,7 @@ import (
 )
 
 func ym(y int, m time.Month) time.Time {
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Local)
 }
 
 // CREATE Tests
@@ -415,6 +415,168 @@ func TestService_List_ErrDatabase(t *testing.T) {
 
 	subs, err := svc.List(ctx, filter)
 	require.Nil(t, subs)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "ошибка БД")
+}
+
+// TotalCost Tests
+func TestService_TotalCost_OK_1(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	// Период: с января по март 2025, подписка: с января по марта 2025, цена: 400 - 400*3 = 1200
+	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
+	data := []models.Subscription{
+		{
+			ID: 1,
+			ServiceName: "Yandex Plus",
+			Price: 400,
+			UserID: "u-1",
+			StartDate: periodStart,
+			EndDate: &periodEnd,
+		},
+	}
+	repo.EXPECT().List(ctx, mock.AnythingOfType("infra.ListFilter")).Return(data, nil)
+
+	sum, err := svc.TotalCost(ctx, periodStart, periodEnd, services.ListFilter{})
+	require.NoError(t, err)
+	require.Equal(t, 1200, sum)
+}
+
+func TestService_TotalCost_OK_2(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	// Период: с января по март 2025, подписка: с февраля по апрель 2025, цена: 400, пересечение: февраль-март = 400*2 = 800
+	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
+	subStart, subEnd := ym(2025, time.February), ym(2025, time.April)
+	data := []models.Subscription{
+		{
+			ID: 1,
+			ServiceName: "Yandex Plus",
+			Price: 400,
+			UserID: "u-1",
+			StartDate: subStart,
+			EndDate: &subEnd,
+		},
+	}
+
+	repo.EXPECT().List(ctx, mock.AnythingOfType("infra.ListFilter")).Return(data, nil)
+
+	sum, err := svc.TotalCost(ctx, periodStart, periodEnd, services.ListFilter{})
+	require.NoError(t, err)
+	require.Equal(t, 800, sum)
+}
+
+func TestService_TotalCost_OK_3(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	// Период: с января по март 2025, подписка: с декабря 2024 без конца, цена: 400*3 = 1200
+	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
+	subStart := ym(2024, time.December)
+	data := []models.Subscription{
+		{
+			ID: 1,
+			ServiceName: "Yandex Plus",
+			Price: 400,
+			UserID: "u-1",
+			StartDate: subStart,
+			EndDate: nil,
+		},
+	}
+
+	repo.EXPECT().List(ctx, mock.AnythingOfType("infra.ListFilter")).Return(data, nil)
+
+	sum, err := svc.TotalCost(ctx, periodStart, periodEnd, services.ListFilter{})
+	require.NoError(t, err)
+	require.Equal(t, 1200, sum)
+}
+
+func TestService_TotalCost_OK_4(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	// Период: с января по март 2025, подписка: с октября 2024 по декабрь 2024, цена: 400 = 0 (период не пересекается)
+	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
+	subStart, subEnd := ym(2024, time.October), ym(2024, time.December)
+	data := []models.Subscription{
+		{
+			ID: 1,
+			ServiceName: "Yandex Plus",
+			Price: 400,
+			UserID: "u-1",
+			StartDate: subStart,
+			EndDate: &subEnd,
+		},
+	}
+
+	repo.EXPECT().List(ctx, mock.AnythingOfType("infra.ListFilter")).Return(data, nil)
+
+	sum, err := svc.TotalCost(ctx, periodStart, periodEnd, services.ListFilter{})
+	require.NoError(t, err)
+	require.Equal(t, 0, sum)
+}
+
+func TestService_TotalCost_ListMapping(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	filter := services.ListFilter{
+		UserID: "u-1", HasUserID: true,
+		ServiceName: "Yandex Plus", HasServiceName: true,
+	}
+
+	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
+	
+	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
+		return ifl.UserID != nil && *ifl.UserID == "u-1" &&
+			ifl.ServiceName != nil && *ifl.ServiceName == "Yandex Plus"
+	})).Return([]models.Subscription{}, nil)
+
+	sum, err := svc.TotalCost(ctx, periodStart, periodEnd, filter)
+	require.NoError(t, err)
+	require.Equal(t, 0, sum)
+}
+
+func TestService_TotalCost_ErrValidation_Period(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	// Период начало март, конец январь = ошибка валидации
+	periodStart, periodEnd := ym(2025, time.March), ym(2025, time.January)
+
+	_, err := svc.TotalCost(ctx, periodStart, periodEnd, services.ListFilter{})
+	require.Error(t, err)
+	require.True(t, errors.Is(err, services.ErrValidation))
+}
+
+func TestService_TotalCost_ErrDatabase(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
+	data := []models.Subscription{
+		{
+			ID: 1,
+			ServiceName: "Yandex Plus",
+			Price: 400,
+			UserID: "u-1",
+			StartDate: periodStart,
+			EndDate: &periodEnd,
+		},
+	}
+
+	repo.EXPECT().List(ctx, mock.AnythingOfType("infra.ListFilter")).Return(data, errors.New("ошибка БД"))
+
+	_, err := svc.TotalCost(ctx, periodStart, periodEnd, services.ListFilter{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "ошибка БД")
 }

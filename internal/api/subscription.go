@@ -51,12 +51,12 @@ func (h *Handler) createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start, _ := time.Parse("01-2006", req.StartDate)
-	start = start.UTC()
+	start = start.Local()
 
 	var endPtr *time.Time
 	if strings.TrimSpace(req.EndDate) != "" {
 		end, _ := time.Parse("01-2006", req.EndDate)
-		tt := end.UTC()
+		tt := end.Local()
 		endPtr = &tt
 	}
 
@@ -117,10 +117,10 @@ func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 		ServiceName: dataItem.ServiceName,
 		Price:       dataItem.Price,
 		UserID:      dataItem.UserID,
-		StartDate:   dataItem.StartDate.UTC().Format("01-2006"),
+		StartDate:   dataItem.StartDate.Local().Format("01-2006"),
 	}
 	if dataItem.EndDate != nil {
-		resp.EndDate = dataItem.EndDate.UTC().Format("01-2006")
+		resp.EndDate = dataItem.EndDate.Local().Format("01-2006")
 	}
 
 	if err := httpx.WriteJSON(w, http.StatusOK, resp); err != nil {
@@ -180,7 +180,7 @@ func (h *Handler) updateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.StartDate != nil {
 		t, _ := time.Parse("01-2006", *req.StartDate)
-		dataItem.StartDate = t.UTC()
+		dataItem.StartDate = t.Local()
 	}
 
 	if req.EndDate != nil {
@@ -188,7 +188,7 @@ func (h *Handler) updateHandler(w http.ResponseWriter, r *http.Request) {
 			dataItem.EndDate = nil
 		} else {
 			t, _ := time.Parse("01-2006", *req.EndDate)
-			tt := t.UTC()
+			tt := t.Local()
 			dataItem.EndDate = &tt
 		}
 	}
@@ -252,10 +252,10 @@ func (h *Handler) listHandler(w http.ResponseWriter, r *http.Request) {
 			ServiceName: dataItem.ServiceName,
 			Price:       dataItem.Price,
 			UserID:      dataItem.UserID,
-			StartDate:   dataItem.StartDate.UTC().Format("01-2006"),
+			StartDate:   dataItem.StartDate.Local().Format("01-2006"),
 		}
 		if dataItem.EndDate != nil {
-			respItem.EndDate = dataItem.EndDate.UTC().Format("01-2006")
+			respItem.EndDate = dataItem.EndDate.Local().Format("01-2006")
 		}
 		resp = append(resp, respItem)
 	}
