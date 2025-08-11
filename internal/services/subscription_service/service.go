@@ -98,6 +98,8 @@ func (s *subscriptionService) TotalCost(ctx context.Context, periodStart, period
 		return 0, fmt.Errorf("%w: end_date не может быть раньше start_date", services.ErrValidation)
 	}
 
+	filter.Limit, filter.Offset = 0, 0
+
 	data, err := s.List(ctx, filter)
 	if err != nil {
 		return 0, fmt.Errorf("service TotalCost(): %w", err)
