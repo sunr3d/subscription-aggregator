@@ -1,12 +1,8 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:13.10-alpine
     env_file:
       - .env
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB_NAME}"]
       interval: 5s
@@ -15,6 +11,14 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
+
+  swagger:
+    image: swaggerapi/swagger-ui:latest
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./api/openapi.yaml:/usr/share/nginx/html/openapi.yaml:ro
+      - ./api/swagger-init.js:/usr/share/nginx/html/swagger-initializer.js:ro
 
   app:
     build:
