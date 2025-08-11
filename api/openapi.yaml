@@ -1,0 +1,146 @@
+openapi: 3.1.0
+info:
+  title: Subscription Aggregator API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /subscriptions:
+    post:
+      summary: Создать подписку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer, example: 123 }
+    get:
+      summary: Список подписок
+      parameters:
+        - in: query
+          name: user_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: service_name
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Ок
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Subscription' }
+
+  /subscriptions/{id}:
+    get:
+      summary: Получить подписку
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Ок
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+        '404': { description: Не найдено }
+    patch:
+      summary: Обновить подписку (частично)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSubscriptionRequest' }
+      responses:
+        '204': { description: Обновлено }
+        '404': { description: Не найдено }
+    delete:
+      summary: Удалить подписку
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Удалено }
+        '404': { description: Не найдено }
+
+  /subscriptions/total:
+    get:
+      summary: Сумма за период
+      parameters:
+        - in: query
+          name: period_start
+          required: true
+          schema: { type: string, example: '07-2025' }
+        - in: query
+          name: period_end
+          required: true
+          schema: { type: string, example: '12-2025' }
+        - in: query
+          name: user_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: service_name
+          schema: { type: string }
+      responses:
+        '200':
+          description: Ок
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_cost: { type: integer, example: 1200 }
+
+components:
+  schemas:
+    Subscription:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        service_name: { type: string, example: Yandex Plus }
+        price: { type: integer, example: 400 }
+        user_id: { type: string, format: uuid }
+        start_date: { type: string, example: '07-2025' }
+        end_date: { type: string, example: '12-2025' }
+    CreateSubscriptionRequest:
+      type: object
+      required: [service_name, price, user_id, start_date]
+      properties:
+        service_name: { type: string }
+        price: { type: integer }
+        user_id: { type: string, format: uuid }
+        start_date: { type: string, example: '07-2025' }
+        end_date: { type: string, example: '12-2025' }
+    UpdateSubscriptionRequest:
+      type: object
+      properties:
+        service_name: { type: string }
+        price: { type: integer }
+        user_id: { type: string, format: uuid }
+        start_date: { type: string, example: '07-2025' }
+        end_date: { type: string, example: '12-2025' }
