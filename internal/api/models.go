@@ -1,6 +1,5 @@
 package api
 
-
 // Request модели
 type createSubscriptionReq struct {
 	ServiceName string `json:"service_name"`

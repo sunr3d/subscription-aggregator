@@ -93,7 +93,6 @@ func (s *subscriptionService) TotalCost(ctx context.Context, periodStart, period
 	ps := normalizeDate(periodStart)
 	pe := normalizeDate(periodEnd)
 
-
 	if pe.Before(ps) {
 		return 0, fmt.Errorf("%w: end_date не может быть раньше start_date", services.ErrValidation)
 	}
@@ -122,12 +121,12 @@ func (s *subscriptionService) TotalCost(ctx context.Context, periodStart, period
 		if end.Before(start) {
 			continue
 		}
-		
-		months := (end.Year() - start.Year()) * 12 + int(end.Month()) - int(start.Month()) + 1
+
+		months := (end.Year()-start.Year())*12 + int(end.Month()) - int(start.Month()) + 1
 		if months > 0 {
 			sum += months * item.Price
 		}
-		
+
 	}
 	return sum, nil
 }

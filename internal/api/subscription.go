@@ -217,7 +217,7 @@ func (h *Handler) deleteHandler(w http.ResponseWriter, r *http.Request) {
 		httpx.HttpError(w, http.StatusBadRequest, "Некорректный ID")
 		return
 	}
-	
+
 	if err := h.svc.Delete(r.Context(), id); err != nil {
 		if errors.Is(err, services.ErrNotFound) {
 			httpx.HttpError(w, http.StatusNotFound, "Подписка не найдена")
@@ -246,7 +246,7 @@ func (h *Handler) listHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := make([]subscriptionRes, 0, len(data))
-	
+
 	for _, dataItem := range data {
 		respItem := subscriptionRes{
 			ID:          dataItem.ID,
@@ -282,7 +282,7 @@ func (h *Handler) totalCostHandler(w http.ResponseWriter, r *http.Request) {
 
 	periodStart, _ := time.Parse("01-2006", strings.TrimSpace(query.Get("period_start")))
 	periodEnd, _ := time.Parse("01-2006", strings.TrimSpace(query.Get("period_end")))
-	
+
 	filter := services.ListFilter{}
 	if userID := strings.TrimSpace(query.Get("user_id")); userID != "" {
 		filter.UserID, filter.HasUserID = userID, true

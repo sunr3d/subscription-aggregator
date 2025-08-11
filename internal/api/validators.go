@@ -102,6 +102,6 @@ func validateTotalCost(query url.Values) error {
 	if _, err := time.Parse("01-2006", endDate); err != nil {
 		return fmt.Errorf("period_end должен быть в формате MM-YYYY")
 	}
-	
+
 	return nil
 }

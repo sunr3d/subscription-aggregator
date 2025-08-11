@@ -11,12 +11,12 @@ import (
 )
 
 type Server struct {
-	server *http.Server
-	logger *zap.Logger
+	server          *http.Server
+	logger          *zap.Logger
 	shutdownTimeout time.Duration
 }
 
-func New(port string, handler http.Handler, timeout time.Duration,logger *zap.Logger) *Server {
+func New(port string, handler http.Handler, timeout time.Duration, logger *zap.Logger) *Server {
 	return &Server{
 		server: &http.Server{
 			Addr:              ":" + port,
@@ -26,7 +26,7 @@ func New(port string, handler http.Handler, timeout time.Duration,logger *zap.Lo
 			IdleTimeout:       timeout,
 			ReadHeaderTimeout: timeout,
 		},
-		logger: logger,
+		logger:          logger,
 		shutdownTimeout: timeout,
 	}
 }
@@ -49,7 +49,7 @@ func (s *Server) Start(ctx context.Context) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 		defer cancel()
-		
+
 		s.logger.Info("Получен сигнал завершения")
 		if err := s.server.Shutdown(shutdownCtx); err != nil {
 			s.logger.Error("Ошибка при завершении работы сервера", zap.Error(err))

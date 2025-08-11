@@ -192,12 +192,12 @@ func TestService_Update_OK(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	in := models.Subscription{
-		ID: 1,
+		ID:          1,
 		ServiceName: "Yandex Plus",
-		Price: 400,
-		UserID: "u-1",
-		StartDate: ym(2025, time.July),
-		EndDate: nil,
+		Price:       400,
+		UserID:      "u-1",
+		StartDate:   ym(2025, time.July),
+		EndDate:     nil,
 	}
 
 	repo.EXPECT().Update(ctx, in).Return(nil)
@@ -212,12 +212,12 @@ func TestService_Update_ErrValidation_PriceNegative(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	in := models.Subscription{
-		ID: 1,
+		ID:          1,
 		ServiceName: "Yandex Plus",
-		Price: -100,
-		UserID: "u-1",
-		StartDate: ym(2025, time.July),
-		EndDate: nil,
+		Price:       -100,
+		UserID:      "u-1",
+		StartDate:   ym(2025, time.July),
+		EndDate:     nil,
 	}
 
 	err := svc.Update(ctx, in)
@@ -232,12 +232,12 @@ func TestService_Update_ErrValidation_EndDateBeforeStartDate(t *testing.T) {
 
 	endDate := ym(2025, time.June)
 	in := models.Subscription{
-		ID: 1,
+		ID:          1,
 		ServiceName: "Yandex Plus",
-		Price: 400,
-		UserID: "u-1",
-		StartDate: ym(2025, time.July),
-		EndDate: &endDate,
+		Price:       400,
+		UserID:      "u-1",
+		StartDate:   ym(2025, time.July),
+		EndDate:     &endDate,
 	}
 
 	err := svc.Update(ctx, in)
@@ -251,12 +251,12 @@ func TestService_Update_ErrNotFound(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	in := models.Subscription{
-		ID: 1,
+		ID:          1,
 		ServiceName: "Yandex Plus",
-		Price: 400,
-		UserID: "u-1",
-		StartDate: ym(2025, time.July),
-		EndDate: nil,
+		Price:       400,
+		UserID:      "u-1",
+		StartDate:   ym(2025, time.July),
+		EndDate:     nil,
 	}
 
 	repo.EXPECT().Update(ctx, in).Return(infra.ErrNotFound)
@@ -272,12 +272,12 @@ func TestService_Update_ErrDatabase(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	in := models.Subscription{
-		ID: 1,
+		ID:          1,
 		ServiceName: "Yandex Plus",
-		Price: 400,
-		UserID: "u-1",
-		StartDate: ym(2025, time.July),
-		EndDate: nil,
+		Price:       400,
+		UserID:      "u-1",
+		StartDate:   ym(2025, time.July),
+		EndDate:     nil,
 	}
 
 	repo.EXPECT().Update(ctx, in).Return(errors.New("ошибка БД"))
@@ -330,22 +330,22 @@ func TestService_List_OK_AllFilters(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	filter := services.ListFilter{
-		UserID: "u-1",
-		HasUserID: true,
-		ServiceName: "Yandex Plus",
+		UserID:         "u-1",
+		HasUserID:      true,
+		ServiceName:    "Yandex Plus",
 		HasServiceName: true,
-		Limit: 10,
-		Offset: 20,
+		Limit:          10,
+		Offset:         20,
 	}
 
 	want := []models.Subscription{
 		{
-			ID: 1,
+			ID:          1,
 			ServiceName: "Yandex Plus",
-			Price: 400,
-			UserID: "u-1",
-			StartDate: ym(2025, time.July),
-			EndDate: nil,
+			Price:       400,
+			UserID:      "u-1",
+			StartDate:   ym(2025, time.July),
+			EndDate:     nil,
 		},
 	}
 
@@ -366,10 +366,10 @@ func TestService_List_OK_UserOnly(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	filter := services.ListFilter{
-		UserID: "u-1",
+		UserID:    "u-1",
 		HasUserID: true,
-		Limit: 25,
-		Offset: 5,
+		Limit:     25,
+		Offset:    5,
 	}
 
 	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
@@ -387,12 +387,12 @@ func TestService_List_OK_NoFilters(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	filter := services.ListFilter{
-		Limit: 10,
+		Limit:  10,
 		Offset: 20,
 	}
 
 	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
-		return ifl.UserID == nil && ifl.ServiceName == nil &&ifl.Limit == 10 && ifl.Offset == 20
+		return ifl.UserID == nil && ifl.ServiceName == nil && ifl.Limit == 10 && ifl.Offset == 20
 	})).Return([]models.Subscription{}, nil)
 
 	_, err := svc.List(ctx, filter)
@@ -405,7 +405,7 @@ func TestService_List_ErrDatabase(t *testing.T) {
 	svc := subscription_service.New(repo)
 
 	filter := services.ListFilter{
-		Limit: 10,
+		Limit:  10,
 		Offset: 0,
 	}
 
@@ -429,12 +429,12 @@ func TestService_TotalCost_OK_1(t *testing.T) {
 	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
 	data := []models.Subscription{
 		{
-			ID: 1,
+			ID:          1,
 			ServiceName: "Yandex Plus",
-			Price: 400,
-			UserID: "u-1",
-			StartDate: periodStart,
-			EndDate: &periodEnd,
+			Price:       400,
+			UserID:      "u-1",
+			StartDate:   periodStart,
+			EndDate:     &periodEnd,
 		},
 	}
 	repo.EXPECT().List(ctx, mock.AnythingOfType("infra.ListFilter")).Return(data, nil)
@@ -454,12 +454,12 @@ func TestService_TotalCost_OK_2(t *testing.T) {
 	subStart, subEnd := ym(2025, time.February), ym(2025, time.April)
 	data := []models.Subscription{
 		{
-			ID: 1,
+			ID:          1,
 			ServiceName: "Yandex Plus",
-			Price: 400,
-			UserID: "u-1",
-			StartDate: subStart,
-			EndDate: &subEnd,
+			Price:       400,
+			UserID:      "u-1",
+			StartDate:   subStart,
+			EndDate:     &subEnd,
 		},
 	}
 
@@ -480,12 +480,12 @@ func TestService_TotalCost_OK_3(t *testing.T) {
 	subStart := ym(2024, time.December)
 	data := []models.Subscription{
 		{
-			ID: 1,
+			ID:          1,
 			ServiceName: "Yandex Plus",
-			Price: 400,
-			UserID: "u-1",
-			StartDate: subStart,
-			EndDate: nil,
+			Price:       400,
+			UserID:      "u-1",
+			StartDate:   subStart,
+			EndDate:     nil,
 		},
 	}
 
@@ -506,12 +506,12 @@ func TestService_TotalCost_OK_4(t *testing.T) {
 	subStart, subEnd := ym(2024, time.October), ym(2024, time.December)
 	data := []models.Subscription{
 		{
-			ID: 1,
+			ID:          1,
 			ServiceName: "Yandex Plus",
-			Price: 400,
-			UserID: "u-1",
-			StartDate: subStart,
-			EndDate: &subEnd,
+			Price:       400,
+			UserID:      "u-1",
+			StartDate:   subStart,
+			EndDate:     &subEnd,
 		},
 	}
 
@@ -533,7 +533,7 @@ func TestService_TotalCost_ListMapping(t *testing.T) {
 	}
 
 	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
-	
+
 	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
 		return ifl.UserID != nil && *ifl.UserID == "u-1" &&
 			ifl.ServiceName != nil && *ifl.ServiceName == "Yandex Plus"
@@ -565,12 +565,12 @@ func TestService_TotalCost_ErrDatabase(t *testing.T) {
 	periodStart, periodEnd := ym(2025, time.January), ym(2025, time.March)
 	data := []models.Subscription{
 		{
-			ID: 1,
+			ID:          1,
 			ServiceName: "Yandex Plus",
-			Price: 400,
-			UserID: "u-1",
-			StartDate: periodStart,
-			EndDate: &periodEnd,
+			Price:       400,
+			UserID:      "u-1",
+			StartDate:   periodStart,
+			EndDate:     &periodEnd,
 		},
 	}
 
