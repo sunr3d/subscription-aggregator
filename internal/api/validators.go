@@ -86,3 +86,22 @@ func validateListSubscription(query url.Values, filter *services.ListFilter) err
 	}
 	return nil
 }
+
+func validateTotalCost(query url.Values) error {
+	startDate := strings.TrimSpace(query.Get("period_start"))
+	endDate := strings.TrimSpace(query.Get("period_end"))
+
+	if startDate == "" || endDate == "" {
+		return fmt.Errorf("period_start и period_end не могут быть пустыми")
+	}
+
+	if _, err := time.Parse("01-2006", startDate); err != nil {
+		return fmt.Errorf("period_start должен быть в формате MM-YYYY")
+	}
+
+	if _, err := time.Parse("01-2006", endDate); err != nil {
+		return fmt.Errorf("period_end должен быть в формате MM-YYYY")
+	}
+	
+	return nil
+}

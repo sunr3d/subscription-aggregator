@@ -27,12 +27,13 @@ func New(svc services.SubscriptionService, logger *zap.Logger) *Handler {
 	}
 }
 
-func (h *Handler) RegisterCRUDL(mux *http.ServeMux) {
+func (h *Handler) RegisterHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("POST /subscriptions", h.createHandler)
 	mux.HandleFunc("GET /subscriptions/{id}", h.getHandler)
 	mux.HandleFunc("PATCH /subscriptions/{id}", h.updateHandler)
 	mux.HandleFunc("DELETE /subscriptions/{id}", h.deleteHandler)
 	mux.HandleFunc("GET /subscriptions", h.listHandler)
+	mux.HandleFunc("GET /subscriptions/total", h.totalCostHandler)
 }
 
 func (h *Handler) createHandler(w http.ResponseWriter, r *http.Request) {
@@ -261,6 +262,48 @@ func (h *Handler) listHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := httpx.WriteJSON(w, http.StatusOK, resp); err != nil {
+		switch {
+		case errors.Is(err, httpx.ErrJSONMarshal):
+			h.logger.Error("не удалось сериализовать JSON", zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		case errors.Is(err, httpx.ErrWriteBody):
+			h.logger.Warn("клиент закрыл соединение, ответ не был отправлен", zap.Error(err))
+		}
+	}
+}
+
+func (h *Handler) totalCostHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+
+	if err := validateTotalCost(query); err != nil {
+		httpx.HttpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	periodStart, _ := time.Parse("01-2006", strings.TrimSpace(query.Get("period_start")))
+	periodEnd, _ := time.Parse("01-2006", strings.TrimSpace(query.Get("period_end")))
+	
+	filter := services.ListFilter{}
+	if userID := strings.TrimSpace(query.Get("user_id")); userID != "" {
+		filter.UserID, filter.HasUserID = userID, true
+	}
+	if serviceName := strings.TrimSpace(query.Get("service_name")); serviceName != "" {
+		filter.ServiceName, filter.HasServiceName = serviceName, true
+	}
+
+	sum, err := h.svc.TotalCost(r.Context(), periodStart, periodEnd, filter)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrValidation):
+			httpx.HttpError(w, http.StatusBadRequest, err.Error())
+		default:
+			h.logger.Error("Ошибка TotalCost()", zap.Error(err))
+			httpx.HttpError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		}
+		return
+	}
+
+	if err := httpx.WriteJSON(w, http.StatusOK, map[string]int{"total_cost": sum}); err != nil {
 		switch {
 		case errors.Is(err, httpx.ErrJSONMarshal):
 			h.logger.Error("не удалось сериализовать JSON", zap.Error(err))
