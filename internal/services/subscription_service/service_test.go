@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sunr3d/subscription-aggregator/internal/interfaces/infra"
@@ -287,7 +288,133 @@ func TestService_Update_ErrDatabase(t *testing.T) {
 }
 
 // DELETE Tests
-// TODO: Добавить тесты для Delete
+func TestService_Delete_OK(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	repo.EXPECT().Delete(ctx, 1).Return(nil)
+
+	err := svc.Delete(ctx, 1)
+	require.NoError(t, err)
+}
+
+func TestService_Delete_ErrNotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	repo.EXPECT().Delete(ctx, 1).Return(infra.ErrNotFound)
+
+	err := svc.Delete(ctx, 1)
+	require.Error(t, err)
+	require.True(t, errors.Is(err, services.ErrNotFound))
+}
+
+func TestService_Delete_ErrDatabase(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	repo.EXPECT().Delete(ctx, 1).Return(errors.New("ошибка БД"))
+
+	err := svc.Delete(ctx, 1)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "ошибка БД")
+}
 
 // LIST Tests
-// TODO: Добавить тесты для List
+func TestService_List_OK_AllFilters(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	filter := services.ListFilter{
+		UserID: "u-1",
+		HasUserID: true,
+		ServiceName: "Yandex Plus",
+		HasServiceName: true,
+		Limit: 10,
+		Offset: 20,
+	}
+
+	want := []models.Subscription{
+		{
+			ID: 1,
+			ServiceName: "Yandex Plus",
+			Price: 400,
+			UserID: "u-1",
+			StartDate: ym(2025, time.July),
+			EndDate: nil,
+		},
+	}
+
+	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
+		return ifl.UserID != nil && *ifl.UserID == "u-1" &&
+			ifl.ServiceName != nil && *ifl.ServiceName == "Yandex Plus" &&
+			ifl.Limit == 10 && ifl.Offset == 20
+	})).Return(want, nil)
+
+	subs, err := svc.List(ctx, filter)
+	require.NoError(t, err)
+	require.Equal(t, want, subs)
+}
+
+func TestService_List_OK_UserOnly(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	filter := services.ListFilter{
+		UserID: "u-1",
+		HasUserID: true,
+		Limit: 25,
+		Offset: 5,
+	}
+
+	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
+		return ifl.UserID != nil && *ifl.UserID == "u-1" &&
+			ifl.ServiceName == nil && ifl.Limit == 25 && ifl.Offset == 5
+	})).Return([]models.Subscription{}, nil)
+
+	_, err := svc.List(ctx, filter)
+	require.NoError(t, err)
+}
+
+func TestService_List_OK_NoFilters(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	filter := services.ListFilter{
+		Limit: 10,
+		Offset: 20,
+	}
+
+	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
+		return ifl.UserID == nil && ifl.ServiceName == nil &&ifl.Limit == 10 && ifl.Offset == 20
+	})).Return([]models.Subscription{}, nil)
+
+	_, err := svc.List(ctx, filter)
+	require.NoError(t, err)
+}
+
+func TestService_List_ErrDatabase(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewDatabase(t)
+	svc := subscription_service.New(repo)
+
+	filter := services.ListFilter{
+		Limit: 10,
+		Offset: 0,
+	}
+
+	repo.EXPECT().List(ctx, mock.MatchedBy(func(ifl infra.ListFilter) bool {
+		return ifl.UserID == nil && ifl.ServiceName == nil && ifl.Limit == 10 && ifl.Offset == 0
+	})).Return(nil, errors.New("ошибка БД"))
+
+	subs, err := svc.List(ctx, filter)
+	require.Nil(t, subs)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "ошибка БД")
+}
