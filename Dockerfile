@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o subscription_service ./cmd/main.go
 FROM alpine:3.21
 
 WORKDIR /app
-RUN adduser -D -g ''
+RUN adduser -D -g '' appuser
 COPY --from=builder /app/subscription_service .
 RUN chown -R appuser:appuser /app
 USER appuser
